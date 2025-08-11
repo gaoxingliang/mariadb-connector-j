@@ -2,7 +2,8 @@
 changed the `Driver` to intercept some method to make sure the last result set is returned.
 ```shell
 use this to package:
-mvn package -Dmaven.test.skip=true
+mac: mvn package -Dmaven.test.skip=true
+win: mvn package '-Dmaven.test.skip=true'
 ```
 The diff branch is [HERE](https://github.com/gaoxingliang/mariadb-connector-j/compare/2.7.10...gaoxingliang:mariadb-connector-j:metabase-2.7.10)
 
