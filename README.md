@@ -1,5 +1,9 @@
 # Updates
 changed the `Driver` to intercept some method to make sure the last result set is returned.
+```shell
+use this to package:
+mvn package -Dmaven.test.skip=true
+```
 # ~~~~~~~~~~
 
 <p align="center">
