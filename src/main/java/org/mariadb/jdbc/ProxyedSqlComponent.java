@@ -59,13 +59,7 @@ public class ProxyedSqlComponent {
                     throw new SQLException("Unknown sql method with args:" + Arrays.toString(args));
                 }
                 handleMultiQuery(sql, args, methodEnum);
-                // try to check the value
-                sql = sql.toLowerCase().trim();
-                if (sql.startsWith("select")) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return lastResultSet != null;
             } else if ("executeQuery".equals(methodName)) {
                 /**
                  * {@link Statement#executeQuery(String)}
@@ -87,7 +81,7 @@ public class ProxyedSqlComponent {
         private Object handleMultiQuery(String sql, Object[] args, EXECUTE_METHOD method) throws SQLException {
             // 执行多条SQL
             boolean hasResultSet;
-            if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL || method == EXECUTE_METHOD.EXECUTE_QUERY_SQL) {
+            if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL) {
                 hasResultSet = originalStatement.execute(sql);
             } else if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL_INT) {
                 hasResultSet = originalStatement.execute(sql, (int) args[1]);
@@ -95,6 +89,9 @@ public class ProxyedSqlComponent {
                 hasResultSet = originalStatement.execute(sql, (int[]) args[1]);
             } else if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL_STRING_ARRAY) {
                 hasResultSet = originalStatement.execute(sql, (String[]) args[1]);
+            } else if (method == EXECUTE_METHOD.EXECUTE_QUERY_SQL) {
+                originalStatement.execute(sql);
+                hasResultSet = true;
             } else {
                 throw new SQLException("Not implement sql method type - " + method);
             }
@@ -144,6 +141,6 @@ public class ProxyedSqlComponent {
          * {@link Statement#executeQuery(String)}
          */
         EXECUTE_QUERY_SQL
-        
+
     }
 }
