@@ -2,6 +2,7 @@ package org.mariadb.jdbc;
 
 import java.lang.reflect.*;
 import java.sql.*;
+import java.util.Arrays;
 
 public class ProxyedSqlComponent {
     // 实现代理Connection，重写createStatement返回你的代理Statement
@@ -37,13 +38,27 @@ public class ProxyedSqlComponent {
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
             String methodName = method.getName();
-            if ("execute".equals(methodName) && args.length == 1) {
+            if ("execute".equals(methodName)) {
                 /**
                  * only change this method
                  * {@link Statement#execute(String)}
                  */
                 String sql = (String) args[0];
-                handleMultiQuery(sql);
+                EXECUTE_METHOD methodEnum = null;
+                if (args.length == 1) {
+                    methodEnum = EXECUTE_METHOD.EXECUTE_ARG_SQL;
+                } else if (args.length == 2) {
+                    if (args[1] instanceof Integer) {
+                        methodEnum = EXECUTE_METHOD.EXECUTE_ARG_SQL_INT;
+                    } else if (args[1] instanceof int[]) {
+                        methodEnum = EXECUTE_METHOD.EXECUTE_ARG_SQL_INT_ARRAY;
+                    } else if (args[1] instanceof String[]) {
+                        methodEnum = EXECUTE_METHOD.EXECUTE_ARG_SQL_STRING_ARRAY;
+                    }
+                } else {
+                    throw new SQLException("Unknown sql method with args:" + Arrays.toString(args));
+                }
+                handleMultiQuery(sql, args, methodEnum);
                 // try to check the value
                 sql = sql.toLowerCase().trim();
                 if (sql.startsWith("select")) {
@@ -55,7 +70,7 @@ public class ProxyedSqlComponent {
                 /**
                  * {@link Statement#executeQuery(String)}
                  */
-                return handleMultiQuery((String) args[0]);
+                return handleMultiQuery((String) args[0], args, EXECUTE_METHOD.EXECUTE_QUERY_SQL);
             } else if ("close".equals(methodName)) {
                 if (lastResultSet != null && !lastResultSet.isClosed()) {
                     lastResultSet.close();
@@ -69,10 +84,20 @@ public class ProxyedSqlComponent {
             return method.invoke(originalStatement, args);
         }
 
-        private Object handleMultiQuery(String sql) throws SQLException {
+        private Object handleMultiQuery(String sql, Object[] args, EXECUTE_METHOD method) throws SQLException {
             // 执行多条SQL
-            boolean hasResultSet = originalStatement.execute(sql);
-
+            boolean hasResultSet;
+            if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL || method == EXECUTE_METHOD.EXECUTE_QUERY_SQL) {
+                hasResultSet = originalStatement.execute(sql);
+            } else if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL_INT) {
+                hasResultSet = originalStatement.execute(sql, (int) args[1]);
+            } else if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL_INT_ARRAY) {
+                hasResultSet = originalStatement.execute(sql, (int[]) args[1]);
+            } else if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL_STRING_ARRAY) {
+                hasResultSet = originalStatement.execute(sql, (String[]) args[1]);
+            } else {
+                throw new SQLException("Not implement sql method type - " + method);
+            }
             ResultSet rs = null;
             ResultSet lastRs = null;
             int resultSetCount = 0;
@@ -95,5 +120,30 @@ public class ProxyedSqlComponent {
             return lastRs; // 返回最后一个ResultSet
         }
 
+    }
+
+    // method enum
+    enum EXECUTE_METHOD {
+        /**
+         * {@link Statement#execute(String)}
+         */
+        EXECUTE_ARG_SQL,
+        /**
+         * {@link Statement#execute(String, int)}
+         */
+        EXECUTE_ARG_SQL_INT,
+        /**
+         * {@link Statement#execute(String, int[])}
+         */
+        EXECUTE_ARG_SQL_INT_ARRAY,
+        /**
+         * {@link Statement#execute(String, String[])}
+         */
+        EXECUTE_ARG_SQL_STRING_ARRAY,
+        /**
+         * {@link Statement#executeQuery(String)}
+         */
+        EXECUTE_QUERY_SQL
+        
     }
 }
