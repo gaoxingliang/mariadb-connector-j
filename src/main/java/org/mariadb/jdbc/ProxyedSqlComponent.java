@@ -15,11 +15,18 @@ public class ProxyedSqlComponent {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            if ("createStatement".equals(method.getName()) || "prepareStatement".equals(method.getName())) {
+            if ("createStatement".equals(method.getName())) {
                 Statement stmt = (Statement) method.invoke(originalConn, args);
                 return Proxy.newProxyInstance(
                         Statement.class.getClassLoader(),
                         new Class<?>[]{Statement.class},
+                        new ProxyedStatementHandler(stmt)
+                );
+            } else if ("prepareStatement".equals(method.getName())) {
+                PreparedStatement stmt = (PreparedStatement) method.invoke(originalConn, args);
+                return Proxy.newProxyInstance(
+                        PreparedStatement.class.getClassLoader(),
+                        new Class<?>[]{PreparedStatement.class},
                         new ProxyedStatementHandler(stmt)
                 );
             }
