@@ -15,7 +15,7 @@ public class ProxyedSqlComponent {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            if ("createStatement".equals(method.getName())) {
+            if ("createStatement".equals(method.getName()) || "prepareStatement".equals(method.getName())) {
                 Statement stmt = (Statement) method.invoke(originalConn, args);
                 return Proxy.newProxyInstance(
                         Statement.class.getClassLoader(),
