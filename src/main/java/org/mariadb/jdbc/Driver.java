@@ -55,20 +55,26 @@ package org.mariadb.jdbc;
 import java.lang.reflect.*;
 import java.sql.*;
 import java.util.*;
+import org.mariadb.jdbc.internal.util.*;
 
 public final class Driver extends DriverO {
-    @Override
-    public Connection connect(String url, Properties props) throws SQLException {
-        Connection connection = super.connect(url, props);
-        if (props.getProperty("allowMultiQueries", "false").equalsIgnoreCase("true")) {
-            // 返回一个代理Connection
-            return (Connection) Proxy.newProxyInstance(
-                    connection.getClass().getClassLoader(),
-                    new Class<?>[] { Connection.class },
-                    new ProxyedSqlComponent.ConnectionInvocationHandler(connection)
-            );
-        }
-
-        return connection;
+  static {
+    try {
+      DriverManager.registerDriver(new Driver(), new DeRegister());
+    } catch (SQLException e) {
+      throw new RuntimeException("Could not register driver", e);
     }
+  }
+
+  @Override
+  public Connection connect(String url, Properties props) throws SQLException {
+    Connection connection = super.connect(url, props);
+
+    // 返回一个代理Connection
+    return (Connection)
+        Proxy.newProxyInstance(
+            connection.getClass().getClassLoader(),
+            new Class<?>[] {Connection.class},
+            new ProxyedSqlComponent.ConnectionInvocationHandler(connection));
+  }
 }

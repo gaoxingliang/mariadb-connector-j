@@ -52,26 +52,15 @@
 
 package org.mariadb.jdbc;
 
+import java.lang.reflect.*;
+import java.sql.*;
+import java.util.*;
 import org.mariadb.jdbc.internal.util.*;
 import org.mariadb.jdbc.internal.util.constant.*;
 import org.mariadb.jdbc.util.*;
 
-import java.lang.reflect.*;
-import java.sql.*;
-import java.util.*;
-
-/**
- * This is the original implementation of java sql driver
- */
+/** This is the original implementation of java sql driver */
 public class DriverO implements java.sql.Driver {
-
-  static {
-    try {
-      DriverManager.registerDriver(new DriverO(), new DeRegister());
-    } catch (SQLException e) {
-      throw new RuntimeException("Could not register driver", e);
-    }
-  }
 
   /**
    * Connect to the given connection string.
