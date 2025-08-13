@@ -52,29 +52,37 @@
 
 package org.mariadb.jdbc;
 
+import org.mariadb.jdbc.internal.logging.*;
+import org.mariadb.jdbc.internal.util.*;
+
 import java.lang.reflect.*;
 import java.sql.*;
 import java.util.*;
-import org.mariadb.jdbc.internal.util.*;
 
 public final class Driver extends DriverO {
-  static {
-    try {
-      DriverManager.registerDriver(new Driver(), new DeRegister());
-    } catch (SQLException e) {
-      throw new RuntimeException("Could not register driver", e);
+    private static final Logger logger = LoggerFactory.getLogger(Driver.class);
+
+    static {
+        try {
+            DriverManager.registerDriver(new Driver(), new DeRegister());
+        } catch (SQLException e) {
+            throw new RuntimeException("Could not register driver", e);
+        }
     }
-  }
 
-  @Override
-  public Connection connect(String url, Properties props) throws SQLException {
-    Connection connection = super.connect(url, props);
-
-    // 返回一个代理Connection
-    return (Connection)
-        Proxy.newProxyInstance(
-            connection.getClass().getClassLoader(),
-            new Class<?>[] {Connection.class},
-            new ProxyedSqlComponent.ConnectionInvocationHandler(connection));
-  }
+    @Override
+    public Connection connect(String url, Properties props) throws SQLException {
+        Connection connection = super.connect(url, props);
+        UrlParser urlParser = UrlParser.parse(url, props);
+        if (urlParser.getOptions().allowMultiQueries) {
+            logger.warn("Allow multi query is enable for " + url);
+            return (Connection)
+                    Proxy.newProxyInstance(
+                            connection.getClass().getClassLoader(),
+                            new Class<?>[]{Connection.class},
+                            new ProxyedSqlComponent.ConnectionInvocationHandler(connection));
+        } else {
+            return connection;
+        }
+    }
 }

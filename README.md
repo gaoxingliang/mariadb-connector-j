@@ -5,7 +5,9 @@ use this to package:
 mac: mvn package -Dmaven.test.skip=true
 win: mvn package '-Dmaven.test.skip=true'
 ```
-The diff branch is [HERE](https://github.com/gaoxingliang/mariadb-connector-j/compare/2.7.10...gaoxingliang:mariadb-connector-j:metabase-2.7.10)
+The diff branch is [HERE](https://github.com/gaoxingliang/mariadb-connector-j/compare/2.7.10...gaoxingliang:mariadb-connector-j:metabase-2.7.10) <br>
+and the main logic is at [ProxyedSqlComponent](./src/main/java/org/mariadb/jdbc/ProxyedSqlComponent.java) <br>
+and it requires the conf at url: `allowMultiQueries=true`
 
 # ~~~~~~~~~~
 

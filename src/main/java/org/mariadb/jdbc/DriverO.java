@@ -52,12 +52,12 @@
 
 package org.mariadb.jdbc;
 
+import org.mariadb.jdbc.internal.util.constant.*;
+import org.mariadb.jdbc.util.*;
+
 import java.lang.reflect.*;
 import java.sql.*;
 import java.util.*;
-import org.mariadb.jdbc.internal.util.*;
-import org.mariadb.jdbc.internal.util.constant.*;
-import org.mariadb.jdbc.util.*;
 
 /** This is the original implementation of java sql driver */
 public class DriverO implements java.sql.Driver {

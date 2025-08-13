@@ -5,7 +5,6 @@ import java.sql.*;
 import java.util.Arrays;
 
 public class ProxyedSqlComponent {
-    // 实现代理Connection，重写createStatement返回你的代理Statement
     public static class ConnectionInvocationHandler implements InvocationHandler {
         private final Connection originalConn;
 
@@ -37,6 +36,7 @@ public class ProxyedSqlComponent {
     public static class ProxyedStatementHandler implements InvocationHandler {
         private final Statement originalStatement;
         private ResultSet lastResultSet;
+        private int lastUpdateCount;
 
         public ProxyedStatementHandler(Statement originalStatement) {
             this.originalStatement = originalStatement;
@@ -50,9 +50,11 @@ public class ProxyedSqlComponent {
                  * only change this method
                  * {@link Statement#execute(String)}
                  */
-                String sql = (String) args[0];
+                String sql = args == null || args.length == 0 ? null : (String) args[0];
                 EXECUTE_METHOD methodEnum = null;
-                if (args.length == 1) {
+                if (args == null || args.length == 0) {
+                    methodEnum = EXECUTE_METHOD.PS_EXECUTE_NOARG;
+                } else if (args.length == 1) {
                     methodEnum = EXECUTE_METHOD.EXECUTE_ARG_SQL;
                 } else if (args.length == 2) {
                     if (args[1] instanceof Integer) {
@@ -69,9 +71,14 @@ public class ProxyedSqlComponent {
                 return lastResultSet != null;
             } else if ("executeQuery".equals(methodName)) {
                 /**
-                 * {@link Statement#executeQuery(String)}
+                 * {@link Statement#executeQuery(String)} or {@link PreparedStatement#executeQuery()} or executeQuery
                  */
-                return handleMultiQuery((String) args[0], args, EXECUTE_METHOD.EXECUTE_QUERY_SQL);
+                EXECUTE_METHOD executeMethod = EXECUTE_METHOD.EXECUTE_QUERY_SQL;
+                if (originalStatement instanceof PreparedStatement) {
+                    executeMethod = args == null || args.length == 0 ? EXECUTE_METHOD.PS_EXECUTE_QUERY_NOARG :
+                            EXECUTE_METHOD.PS_EXECUTE_QUERY_SQL;
+                }
+                return handleMultiQuery(args == null ? null : (String) args[0], args, executeMethod);
             } else if ("close".equals(methodName)) {
                 if (lastResultSet != null && !lastResultSet.isClosed()) {
                     lastResultSet.close();
@@ -79,6 +86,10 @@ public class ProxyedSqlComponent {
                 return method.invoke(originalStatement, args);
             } else if ("getResultSet".equals(methodName)) {
                 return this.lastResultSet;
+            } else if ("getUpdateCount".equals(methodName)) {
+                int value =  lastUpdateCount;
+                lastUpdateCount = -1;
+                return value;
             }
 
             // 其它方法直接委托
@@ -88,7 +99,10 @@ public class ProxyedSqlComponent {
         private Object handleMultiQuery(String sql, Object[] args, EXECUTE_METHOD method) throws SQLException {
             // 执行多条SQL
             boolean hasResultSet;
-            if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL) {
+            if (method == EXECUTE_METHOD.PS_EXECUTE_NOARG) {
+                PreparedStatement ps = (PreparedStatement) originalStatement;
+                hasResultSet = ps.execute();
+            } else if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL) {
                 hasResultSet = originalStatement.execute(sql);
             } else if (method == EXECUTE_METHOD.EXECUTE_ARG_SQL_INT) {
                 hasResultSet = originalStatement.execute(sql, (int) args[1]);
@@ -99,31 +113,32 @@ public class ProxyedSqlComponent {
             } else if (method == EXECUTE_METHOD.EXECUTE_QUERY_SQL) {
                 originalStatement.execute(sql);
                 hasResultSet = true;
+            } else if (method == EXECUTE_METHOD.PS_EXECUTE_QUERY_SQL) {
+                PreparedStatement ps = (PreparedStatement) originalStatement;
+                ps.executeQuery(sql);
+                hasResultSet = true;
+            } else if (method == EXECUTE_METHOD.PS_EXECUTE_QUERY_NOARG) {
+                PreparedStatement ps = (PreparedStatement) originalStatement;
+                ps.executeQuery();
+                hasResultSet = true;
             } else {
                 throw new SQLException("Not implement sql method type - " + method);
             }
-            ResultSet rs = null;
-            ResultSet lastRs = null;
-            int resultSetCount = 0;
 
             do {
                 if (hasResultSet) {
-                    rs = originalStatement.getResultSet();
-                    resultSetCount++;
                     // 保存当前的ResultSet
-                    lastRs = rs;
+                    lastResultSet = originalStatement.getResultSet();
                 } else {
                     // 不是ResultSet，可能是更新计数
-                    int updateCount = originalStatement.getUpdateCount();
+                    lastUpdateCount = originalStatement.getUpdateCount();
                 }
                 // 移动到下一个结果，但保持当前ResultSet不被关闭
                 hasResultSet = originalStatement.getMoreResults(Statement.KEEP_CURRENT_RESULT);
             } while (hasResultSet || originalStatement.getUpdateCount() != -1);
 
-            this.lastResultSet = lastRs;
-            return lastRs; // 返回最后一个ResultSet
+            return lastResultSet;
         }
-
     }
 
     // method enum
@@ -147,7 +162,20 @@ public class ProxyedSqlComponent {
         /**
          * {@link Statement#executeQuery(String)}
          */
-        EXECUTE_QUERY_SQL
+        EXECUTE_QUERY_SQL,
+        /**
+         * {@link PreparedStatement#executeQuery()}
+         */
+        PS_EXECUTE_QUERY_NOARG,
 
+        /**
+         * {@link PreparedStatement#executeQuery(String)}
+         */
+        PS_EXECUTE_QUERY_SQL,
+
+        /**
+         * {@link PreparedStatement#execute()}
+         */
+        PS_EXECUTE_NOARG
     }
 }
