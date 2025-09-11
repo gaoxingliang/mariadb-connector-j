@@ -72,17 +72,24 @@ public final class Driver extends DriverO {
 
     @Override
     public Connection connect(String url, Properties props) throws SQLException {
-        Connection connection = super.connect(url, props);
+        /**
+         * if it not accepts this url, pass it to next driver
+         */
         UrlParser urlParser = UrlParser.parse(url, props);
-        if (urlParser.getOptions().allowMultiQueries) {
-            logger.warn("Allow multi query is enable for " + url);
-            return (Connection)
-                    Proxy.newProxyInstance(
-                            connection.getClass().getClassLoader(),
-                            new Class<?>[]{Connection.class},
-                            new ProxyedSqlComponent.ConnectionInvocationHandler(connection));
+        if (urlParser != null) {
+            Connection connection = super.connect(url, props);
+            if (urlParser.getOptions().allowMultiQueries) {
+                logger.warn("Allow multi query is enable for " + url);
+                return (Connection)
+                        Proxy.newProxyInstance(
+                                connection.getClass().getClassLoader(),
+                                new Class<?>[]{Connection.class},
+                                new ProxyedSqlComponent.ConnectionInvocationHandler(connection));
+            } else {
+                return connection;
+            }
         } else {
-            return connection;
+            return null;
         }
     }
 }
